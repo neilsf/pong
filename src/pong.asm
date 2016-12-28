@@ -27,6 +27,7 @@
     MOVFM		= $ba8c
     MOVMF		= $bbd4
     FADD		= $b867
+	INT			= $bccc
     
     var1		= $0351		; var char
     var2		= $0352		; var char
@@ -94,6 +95,7 @@
 			lda #<\1
 			ldy #>\1
 			jsr MOVFM
+			jsr INT
 			jsr FACINX
 			sta <\2
 			sty >\2
@@ -195,6 +197,7 @@
 	
 			#copy player_left, player_left+192, $3fff
 
+			.block
 			lda #$fd		; sprite shapes
 			sta $07f8
 			lda #$fe
@@ -223,13 +226,14 @@
 			sta player_pos1
 			sta player_pos2
 			
-			ldx #38
-			stx ball_posx
-			lda #$00
-			sta ball_posx+1
-			ldy #90
-			sty ball_posy
-			
+			ldx #$05
+		l1	lda ball_init_x-1,x			
+			sta ball_posx-1,x
+			lda ball_init_y-1,x
+			sta ball_posy-1,x
+			dex
+			bne l1
+						
 			lda #$00
 			sta $d01b
 			
@@ -237,7 +241,8 @@
 			sta ball_angle
 		
 			jsr sprpos
-			
+			rts
+			.bend
 
     ; start game
     
@@ -273,11 +278,12 @@
 	; get joystick movements
 	; set player positions
 	; set ball speed vectors
-	
+
+	gloop
 			lda #$01		; debug
 			sta $d020		; debug
 
-	gloop			
+				
 			lda #%00000001
 			bit joy1
 			bne p1down
@@ -298,6 +304,9 @@
 			lda #%00000001
 			bit joy2
 			bne p2down
+			lda player_pos2
+			cmp #$37
+			beq p2down
 			dec player_pos2
 			jmp plend
 	
@@ -305,6 +314,9 @@
 			lda #%00000010	
 			bit joy2
 			bne plend
+			lda player_pos2
+			cmp #$cb
+			beq plend
 			inc player_pos2
 
 	plend
@@ -338,30 +350,34 @@
 			#toint ball_posx, ball_posrx
 			#toint ball_posy, ball_posry
 			
-			lda ball_posx
+			lda ball_posrx
 			sta $d004
 			
-			lda ball_posy
+			lda ball_posry
 			sta $d005
 
 			ldx #$02			
-			lda ball_posx+1
+			lda ball_posrx+1
 			beq	skip
 			ldx #$06
 
 	skip	stx $d010
 	
+	cont4    lda #%00010000 ; mask joystick button push 
+         bit $dc00      ; bitwise AND with address 56320
+         bne cont4
+
 			; check for border collision
 			lda ball_posy
-			cmp #$37
-			bmi border_collision
-			cmp #$cd
-			bne border_collision
+			sta $d021			
+			;cmp #$37
+			;bmi border_collision
+			;cmp #$cd
+			;bne border_collision
 			
 			; check for goal
-			lda ball_posx
+			;lda ball_posx
 			
-	
 			; check for player_collision
 	
 	end_sprpos
@@ -411,18 +427,47 @@
 					
 	; Constants
 	; ------------------
+
+	ball_init_x		.byte $87,$32,$00,$00,$00	
+	ball_init_y		.byte $87,$70,$00,$00,$00
 	
 	bounce_angles1	.byte 7,8,9,10,11,12,13,14,15,16,17
 	bounce_angles2	.byte 5,4,3,2,1,0,23,22,21,20,19
 	wall_bounces	.byte 12,11,10,9,8,7,6,5,4,3,2,1,0
 					.byte 23,22,21,20,19,18,17,16,15,14,13
 	
-	xvectors		.byte $83,$80,$00,$00,$00
-					.byte $81,$84,$83,$ee,$0c
-					.byte $82,$80,$00,$00,$00
+		xvectors	.byte $00,$49,$0f,$da,$a2
+					.byte $81,$04,$83,$ee,$0c
+					.byte $81,$7f,$ff,$ff,$ff
+					.byte $82,$35,$04,$f3,$34
+					.byte $82,$5d,$b3,$d7,$42
+					.byte $82,$77,$46,$ea,$39
 		
-					.byte $82,$dd,$b3,$d7,$42
-					
-	yvectors
+		yvectors	.byte $82,$7f,$ff,$ff,$ff
+					.byte $82,$77,$46,$ea,$3a
+					.byte $82,$5d,$b3,$d7,$44
+					.byte $82,$35,$04,$f3,$36
+					.byte $82,$00,$00,$00,$02
+					.byte $81,$04,$83,$ee,$11
+					.byte $00,$49,$0f,$da,$a2 
+					.byte $81,$84,$83,$ee,$11
+					.byte $81,$ff,$ff,$ff,$fc
+					.byte $82,$b5,$04,$f3,$34
+					.byte $82,$dd,$b3,$d7,$41
+					.byte $82,$f7,$46,$ea,$39
+					.byte $82,$ff,$ff,$ff,$fe 
+					.byte $82,$f7,$46,$ea,$3b
+					.byte $82,$dd,$b3,$d7,$47
+					.byte $82,$b5,$04,$f3,$39
+					.byte $82,$80,$00,$00,$02
+					.byte $81,$84,$83,$ee,$1d
+		
+		rvectors	.byte $00,$49,$0f,$da,$a2
+					.byte $81,$04,$83,$ee,$0c
+					.byte $81,$7f,$ff,$ff,$ff
+					.byte $82,$35,$04,$f3,$34
+					.byte $82,$5d,$b3,$d7,$42
+					.byte $82,$77,$46,$ea,$39					
+
 
 					
