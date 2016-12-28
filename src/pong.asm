@@ -8,6 +8,7 @@
     
     ball_posx	= $0336		; var float
     ball_posy	= $033b		; var float
+    
     ball_dx		= $0340		; var float
     ball_dy		= $0345		; var float
     
@@ -16,6 +17,9 @@
     
     ball_angle	= $034e		; var char	x15deg
     
+    flag_goal1	= $034f		; var char
+    flag_goal2	= $0350		; var char
+    
     joy1		= $dc01
     joy2		= $dc00
     
@@ -23,6 +27,9 @@
     MOVFM		= $ba8c
     MOVMF		= $bbd4
     FADD		= $b867
+    
+    var1		= $0351		; var char
+    var2		= $0352		; var char
     
     ; basic loader "10 sys 2062"
     
@@ -96,13 +103,34 @@
 			tay
 			pla
 			.endm
+			
+	; multiply 8-bit numbers
+	; by White Flame (aka David Holz)
+			
+	mult8	.macro
+			lda #$00
+ 			beq enterloop
+
+		doadd
+			clc
+			adc \1
+
+		loop
+			asl \1
+		enterloop
+			lsr \2
+			bcs doadd
+			bne loop
+			.endm
 
     ; setup screen
 
 			lda #$00
 			sta $d020
 			sta $d021
-    
+
+    		ldx #$00
+
 	clear	lda #$20
 			sta $0400,x
 			sta $0500,x 
@@ -204,12 +232,26 @@
 			
 			lda #$00
 			sta $d01b
+			
+			lda #$02
+			sta ball_angle
 		
 			jsr sprpos
 			
 
-    ; game loop
-    ; set raster interrupt
+    ; start game
+    
+    		; clear goals
+    		
+    		lda #$00
+    		
+    		sta flag_goal1;
+    		sta flag_goal2;
+    		
+    		; update ball direction
+    		jsr update_ball_dir
+    
+		    ; set raster interrupt
 
 			lda #%01111111
 			sta $dc0d
@@ -266,6 +308,7 @@
 			inc player_pos2
 
 	plend
+			
 			#fladd ball_posx, ball_dx
 			#fladd ball_posy, ball_dy
 	
@@ -297,20 +340,60 @@
 			
 			lda ball_posx
 			sta $d004
-			lda ball_posx+1
 			
 			lda ball_posy
 			sta $d005
 
-			
 			ldx #$02			
 			lda ball_posx+1
 			beq	skip
 			ldx #$06
 
 	skip	stx $d010
+	
+			; check for border collision
+			lda ball_posy
+			cmp #$37
+			bmi border_collision
+			cmp #$cd
+			bne border_collision
+			
+			; check for goal
+			lda ball_posx
+			
+	
+			; check for player_collision
+	
+	end_sprpos
 			rts
+			
+	border_collision
+			ldx ball_angle
+			lda wall_bounces,x
+			sta ball_angle
+			jsr update_ball_dir
+			jmp end_sprpos
+			
 			.bend
+			
+	; take the ball angle and
+	; update the ball direction x and y vectors
+			
+	update_ball_dir
+			.block
+			ldx #$05
+			stx var1
+			#mult8 ball_angle, var1
+			tax
+			
+			lda xvectors,x
+			sta ball_dx
+			lda yvectors,x
+			sta ball_dy
+			rts		
+			.bend
+	
+	player_collision
 			
 
     ; Sprites
