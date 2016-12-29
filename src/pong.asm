@@ -3,40 +3,43 @@
 
     *=$0801
     
-    player_pos1	= $0334		; var char
-    player_pos2 = $0335		; var char
+    player_pos1	= $0334		; var char		Player 1 horizontal position
+    player_pos2 = $0335		; var char		Player 2 horizontal position
     
-    ball_posx	= $0336		; var float
-    ball_posy	= $033b		; var float
+    ball_posx	= $0336		; var float 	Exact X position of the ball
+    ball_posy	= $033b		; var float 	Exact Y position of the ball
     
-    ball_dx		= $0340		; var float
-    ball_dy		= $0345		; var float
+    ball_dx		= $0340		; var float 	Ball speed vector X
+    ball_dy		= $0345		; var float 	Ball speed vector Y
     
-    ball_posrx  = $034a		; var int
-    ball_posry  = $034c		; var int
+    ball_posrx  = $034a		; var int 		X position of the ball rounded to 1 pixel
+    ball_posry  = $034c		; var int 		Y position of the ball rounded to 1 pixel
     
-    ball_angle	= $034e		; var char	x15deg
+    ball_angle	= $034e		; var char		Ball movement angle (times 15 degrees)
     
-    flag_goal1	= $034f		; var char
-    flag_goal2	= $0350		; var char
+    flag_goal1	= $034f		; var char 		Set when player 1 scores goal
+    flag_goal2	= $0350		; var char		Set when player 2 scores goal
     
-    joy1		= $dc01
+    joy1		= $dc01		
     joy2		= $dc00
     
-    FACINX		= $b1aa
-    MOVFM		= $ba8c
+    FACINX		= $b1aa		; BASIC float routines
+    MOVFM		= $bba2
     MOVMF		= $bbd4
     FADD		= $b867
 	INT			= $bccc
     
-    var1		= $0351		; var char
-    var2		= $0352		; var char
+    var1		= $0351		; var char		Cheap variable 1
+    var2		= $0352		; var char		Cheap variable 2
     
     ; basic loader "10 sys 2062"
     
     .byte $0c,$08,$0a,$00,$9e,$20,$32,$30,$36,$32,$00,$00,$00
     
-    ; copy routine
+    ; byte copy routine
+    ; arg1 short	base start address
+    ; arg2 short	base end address
+    ; arg3 short	destination end address
     
     copy	.macro
 			lda #<\1
@@ -95,10 +98,9 @@
 			lda #<\1
 			ldy #>\1
 			jsr MOVFM
-			jsr INT
 			jsr FACINX
-			sta <\2
-			sty >\2
+			sta \2+1
+			sty \2
 			pla
 			tax
 			pla
@@ -108,6 +110,7 @@
 			
 	; multiply 8-bit numbers
 	; by White Flame (aka David Holz)
+	; result in A
 			
 	mult8	.macro
 			lda #$00
@@ -237,11 +240,13 @@
 			lda #$00
 			sta $d01b
 			
-			lda #$02
+			lda #$05
 			sta ball_angle
-		
+
+			; update ball direction
+    		jsr update_ball_dir
 			jsr sprpos
-			rts
+			
 			.bend
 
     ; start game
@@ -252,9 +257,7 @@
     		
     		sta flag_goal1;
     		sta flag_goal2;
-    		
-    		; update ball direction
-    		jsr update_ball_dir
+    		    		
     
 		    ; set raster interrupt
 
@@ -262,7 +265,7 @@
 			sta $dc0d
 			and $d011
 			sta $d011
-			lda #$00
+			lda #250
 			sta $d012
 			lda #<gloop
 			sta $0314
@@ -321,13 +324,13 @@
 
 	plend
 			
-			#fladd ball_posx, ball_dx
-			#fladd ball_posy, ball_dy
-	
 			jsr sprpos
 			
 			lda #$00		; debug
 			sta $d020		; debug
+
+			#fladd ball_posx, ball_dx
+			#fladd ball_posy, ball_dy
 			
 			asl $d019
 			jmp $ea81
@@ -363,33 +366,66 @@
 
 	skip	stx $d010
 	
-	cont4    lda #%00010000 ; mask joystick button push 
-         bit $dc00      ; bitwise AND with address 56320
-         bne cont4
-
 			; check for border collision
-			lda ball_posy
-			sta $d021			
-			;cmp #$37
-			;bmi border_collision
-			;cmp #$cd
-			;bne border_collision
+			lda ball_posry		
+			clc	
+			cmp #$39
+			bcc border_collision
+			cmp #$ec
+			bcs border_collision
 			
 			; check for goal
+
+			; check for player_collision
+
+			lda ball_posrx+1
+			beq low
+			
+			lda ball_posrx
+			cmp #52		; player 2 and ball
+			lda player_pos2
+			bcs player_collision_check
+			jmp end_sprpos
+
+	low		lda ball_posrx
+			cmp #17		; player 1 and ball
+			lda player_pos1
+			bcc player_collision_check
+			
+			
+			
 			;lda ball_posx
 			
-			; check for player_collision
 	
 	end_sprpos
 			rts
 			
 	border_collision
 			ldx ball_angle
-			lda wall_bounces,x
+			lda hbounce,x
 			sta ball_angle
 			jsr update_ball_dir
 			jmp end_sprpos
+	
+	player_collision_check
+			sec
+			sbc ball_posry
+			bcc ball_is_lower
+			clc
+			cmp #$08
+			bcc player_bounce
+			jmp end_sprpos			; above
+		ball_is_lower
+			cmp #$cf
+			bcs player_bounce
+			jmp end_sprpos			; bellow
 			
+		player_bounce
+			ldx ball_angle
+			lda vbounce,x
+			sta ball_angle
+			jsr update_ball_dir
+			jmp end_sprpos
 			.bend
 			
 	; take the ball angle and
@@ -399,18 +435,27 @@
 			.block
 			ldx #$05
 			stx var1
-			#mult8 ball_angle, var1
+			ldy ball_angle
+			sty var2
+			#mult8 var1, var2
 			tax
-			
-			lda xvectors,x
-			sta ball_dx
+
+			ldy #$00
+	loop	lda xvectors,x
+			sta ball_dx,y
 			lda yvectors,x
-			sta ball_dy
+			sta ball_dy,y
+			iny
+			inx
+			clc
+			cpy #$05
+			bcc loop
+
 			rts		
 			.bend
 	
-	player_collision
-			
+
+
 
     ; Sprites
     ; ------------------
@@ -431,10 +476,9 @@
 	ball_init_x		.byte $87,$32,$00,$00,$00	
 	ball_init_y		.byte $87,$70,$00,$00,$00
 	
-	bounce_angles1	.byte 7,8,9,10,11,12,13,14,15,16,17
-	bounce_angles2	.byte 5,4,3,2,1,0,23,22,21,20,19
-	wall_bounces	.byte 12,11,10,9,8,7,6,5,4,3,2,1,0
-					.byte 23,22,21,20,19,18,17,16,15,14,13
+	vbounce			.byte 12,23,22,21,20,19,18,17,16,15,14,13,0,1,2,3,4,5,6,7,8,9,10,11
+	
+	hbounce			.byte 12,11,10,9,8,7,6,5,4,3,2,1,0,23,22,21,20,19,18,17,16,15,14,13
 	
 		xvectors	.byte $00,$49,$0f,$da,$a2
 					.byte $81,$04,$83,$ee,$0c
