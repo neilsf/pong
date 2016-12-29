@@ -17,8 +17,10 @@
     
     ball_angle	= $034e		; var char		Ball movement angle (times 15 degrees)
     
-    flag_goal1	= $034f		; var char 		Set when player 1 scores goal
-    flag_goal2	= $0350		; var char		Set when player 2 scores goal
+    flag_goal	= $034f		; var char 		Set when player scores goal 1=PLAYER1, 2=PLAYER2
+    
+    score1		= $0350		; var char		Player 1 score
+    score2		= $0351		; var char		Player 2 score
     
     joy1		= $dc01		
     joy2		= $dc00
@@ -255,11 +257,13 @@
     		
     		lda #$00
     		
-    		sta flag_goal1;
-    		sta flag_goal2;
-    		    		
-    
-		    ; set raster interrupt
+    		sta flag_goal;
+    		    		    
+	start_round
+
+			; TODO clear interrupt, reset players, reset ball, wait
+
+		    ; set interrupt
 
 			lda #%01111111
 			sta $dc0d
@@ -274,10 +278,27 @@
 			lda #%00000001
 			sta $d01a
 		
+	; set loop
+	; let them play and wait for goals
+
 	eloop
-			jmp eloop
+			; was there a goal?
+
+			lda flag_goal
+			beq no
+		
+			; yes, update score and exit loop
+			cmp #$01
+			beq p1
+			inc score1
+
+		p1 	inc score2
+
+			jsr update_score
+			jmp start_round
+		no	jmp eloop
 	
-	; game loop
+	; play loop
 	; get joystick movements
 	; set player positions
 	; set ball speed vectors
@@ -325,7 +346,7 @@
 	plend
 			
 			jsr sprpos
-			
+
 			lda #$00		; debug
 			sta $d020		; debug
 
@@ -376,8 +397,23 @@
 			
 			; check for goal
 
+			lda ball_posrx+1
+			beq llw
+			
+			lda ball_posrx
+			cmp #60
+			lda #$01
+			bcs goal
+			jmp checkhit
+
+	llw		lda ball_posrx
+			cmp #17
+			lda #$02
+			bcc goal
+
 			; check for player_collision
 
+	checkhit
 			lda ball_posrx+1
 			beq low
 			
@@ -399,6 +435,10 @@
 	
 	end_sprpos
 			rts
+
+	goal
+			sta flag_goal
+			jmp end_sprpos
 			
 	border_collision
 			ldx ball_angle
