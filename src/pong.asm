@@ -21,6 +21,9 @@
     
     score1		= $0350		; var char		Player 1 score
     score2		= $0351		; var char		Player 2 score
+
+	SCORE_POS1  = 160		; const char	score 1 horizontal location on screen
+	SCORE_POS2  = 192		; const char	score 2 location on screen
     
     joy1		= $dc01		
     joy2		= $dc00
@@ -30,10 +33,14 @@
     MOVMF		= $bbd4
     FADD		= $b867
 	INT			= $bccc
+	GIVAYF		= $b391
     
-    var1		= $0351		; var char		Cheap variable 1
-    var2		= $0352		; var char		Cheap variable 2
+    var1		= $0352		; var char		Cheap variable 1
+    var2		= $0353		; var char		Cheap variable 2
+	var3		= $0354		; var char		Cheap variable 3
     
+	game_status	= $0355		; var char		=0 Ball is bouncing, =128 p1 is serving, =1 p2 is serving
+	
     ; basic loader "10 sys 2062"
     
     .byte $0c,$08,$0a,$00,$9e,$20,$32,$30,$36,$32,$00,$00,$00
@@ -111,7 +118,7 @@
 			.endm
 			
 	; multiply 8-bit numbers
-	; by White Flame (aka David Holz)
+	; by White Flame
 	; result in A
 			
 	mult8	.macro
@@ -150,8 +157,6 @@
         	sta $dae8,x
         	inx
         	bne clear
-
-    ; welcome screen
 
 			.block
 			ldx #39
@@ -192,78 +197,25 @@
 			bne l3
 			.bend
 
-	; init sprites
-	;
-	; currently sprite shapes are stored at the
-	; end of bank 1, thus the program has to fit
-	; in ~15k
-	; TODO: reconfigure vic if program grows
-	;
-	
-			#copy player_left, player_left+192, $3fff
+			; clear digits sprite area
 
 			.block
-			lda #$fd		; sprite shapes
-			sta $07f8
-			lda #$fe
-			sta $07f9
-			lda #$ff
-			sta $07fa
-			
-			lda #$07		; 3 sprites on
-			sta $d015
-			
-			lda #$03		; players double height
-			sta $d017
-			
-			lda #$00		; monochrome, single width
-			sta $d01c
-			sta $d01d
-			
-			lda #$0a		; colors
-			sta $d027
-			lda #$0e
-			sta $d028
-			lda #07
-			sta $d029
-			
-			lda #120		; initial positions
-			sta player_pos1
-			sta player_pos2
-			
-			ldx #$05
-		l1	lda ball_init_x-1,x			
-			sta ball_posx-1,x
-			lda ball_init_y-1,x
-			sta ball_posy-1,x
-			dex
-			bne l1
-						
-			lda #$00
-			sta $d01b
-			
-			lda #$05
-			sta ball_angle
+			 lda #$00
+			 ldy #128     ; fill 128 bytes
+		loop
+			 sta $3ec0,x
+			 dex
+			 bne loop		
 
-			; update ball direction
-    		jsr update_ball_dir
-			jsr sprpos
-			
 			.bend
+	
+			; copy sprites
+	
+			#copy player_left, player_left+191, $3fff
 
-    ; start game
-    
-    		; clear goals
-    		
-    		lda #$00
-    		
-    		sta flag_goal;
-    		    		    
-	start_round
+			jsr configure
 
-			; TODO clear interrupt, reset players, reset ball, wait
-
-		    ; set interrupt
+			; configure interrupt
 
 			lda #%01111111
 			sta $dc0d
@@ -275,28 +227,134 @@
 			sta $0314
 			lda #>gloop
 			sta $0315
+
+			; set initial scores
+
+			lda #$00
+			sta score1
+			sta score2
+			jsr update_score
+
+			lda #01
+			sta game_status
+
+	; off-game loop
+	;
+
+	off_game
+
+			; redirect interrupt to
+			; the scoretable flashing
+			; routine		
+
+			lda #$00
+			sta var1
+
+			lda #<score_flash
+			sta $0314
+			lda #>score_flash
+			sta $0315
+			
 			lda #%00000001
 			sta $d01a
-		
+
+			; wait for game start
+
+	ogloop  lda #%00010000
+	        bit $dc00
+     		bne j2
+			jmp start_round
+
+		j2	bit $dc01
+			bne ogloop
+	
+
+    ; game loop
+	;
+
+    start_round
+
+    		
+			; clear goal flag
+    		
+    		lda #$00    		
+    		sta flag_goal;
+
+			; disable interrupt and 
+			; reconfigure for gameplay
+
+			lda #%00000000
+			sta $d01a
+
+			lda #<gloop
+			sta $0314
+			lda #>gloop
+			sta $0315
+
+			; reset players
+
+			jsr configure
+			jsr update_score
+
+			; start interrupt
+
+			lda #%00000001
+			sta $d01a
+
+			; serve
+			; wait for serving player fire
+	
+	srv_loop
+			.block
+			lda game_status
+			bmi serving1
+						
+	serving2	
+			lda #%00010000
+			bit $dc00
+			bne serving2
+			lda #13
+			sta ball_angle
+			jmp exit_serving
+
+	serving1
+			lda #%00010000
+			bit $dc01
+			bne serving1
+			
+	exit_serving
+			lda #$00
+			sta game_status		
+
+			.bend
+
 	; set loop
 	; let them play and wait for goals
 
-	eloop
+	eloop	
+			.block
 			; was there a goal?
-
+			
 			lda flag_goal
 			beq no
-		
+	
+			ldx #%00000000
+			stx $d01a
+
 			; yes, update score and exit loop
 			cmp #$01
 			beq p1
-			inc score1
-
-		p1 	inc score2
-
-			jsr update_score
+			inc score2
+			lda #128
+			sta game_status
+			jmp ex
+		p1 	inc score1
+			lda #01
+			sta game_status
+		ex	jsr update_score
 			jmp start_round
 		no	jmp eloop
+			.bend
 	
 	; play loop
 	; get joystick movements
@@ -304,10 +362,23 @@
 	; set ball speed vectors
 
 	gloop
-			lda #$01		; debug
-			sta $d020		; debug
+			;lda #$01		; debug
+			;sta $d020		; debug
+			
+			jsr sprpos
 
-				
+			jsr player_movement
+			jsr ball_movement				
+
+			;lda #$00		; debug
+			;sta $d020		; debug
+			
+			asl $d019
+			jmp $ea81
+
+	player_movement
+	
+			.block
 			lda #%00000001
 			bit joy1
 			bne p1down
@@ -321,7 +392,7 @@
 			bit joy1
 			bne p2up
 			lda player_pos1
-			cmp #$cd
+			cmp #$cb
 			beq p2up
 			inc player_pos1
 	p2up
@@ -344,29 +415,64 @@
 			inc player_pos2
 
 	plend
-			
-			jsr sprpos
+			rts
+			.bend
 
-			lda #$00		; debug
-			sta $d020		; debug
+	ball_movement
+			.block
+			lda game_status
+			beq go
+			bmi p1serve
 
+	p2serve
+			lda player_pos2
+			ldx #$0a
+			jsr pos_ball
+			rts
+	p1serve
+			lda player_pos1
+			ldx #$05
+			jsr pos_ball
+			rts
+
+	pos_ball
+			clc
+			adc #16
+			tay
+			txa
+			pha
+			lda #$00
+			jsr GIVAYF
+
+			ldy #>ball_posy
+			ldx #<ball_posy
+			jsr MOVMF
+ 			pla
+			tax
+			ldy #$05
+		l1	lda ball_init_x1-1,x			
+			sta ball_posx-1,y			
+			dex			
+			dey
+			bne l1	
+			rts
+	
+		go	
 			#fladd ball_posx, ball_dx
 			#fladd ball_posy, ball_dy
-			
-			asl $d019
-			jmp $ea81
-
+			rts
+			.bend
 
 	; sprite positioning
 	
 	sprpos	
 			.block
-			lda #08
+			lda #24
 			sta $d000
 			lda player_pos1
 			sta $d001
 			
-			lda #72
+			lda #64
 			sta $d002
 			lda player_pos2
 			sta $d003
@@ -401,13 +507,13 @@
 			beq llw
 			
 			lda ball_posrx
-			cmp #60
+			cmp #80
 			lda #$01
 			bcs goal
 			jmp checkhit
 
 	llw		lda ball_posrx
-			cmp #17
+			cmp #09
 			lda #$02
 			bcc goal
 
@@ -418,13 +524,13 @@
 			beq low
 			
 			lda ball_posrx
-			cmp #52		; player 2 and ball
+			cmp #72		; player 2 and ball
 			lda player_pos2
 			bcs player_collision_check
 			jmp end_sprpos
 
 	low		lda ball_posrx
-			cmp #17		; player 1 and ball
+			cmp #32		; player 1 and ball
 			lda player_pos1
 			bcc player_collision_check
 			
@@ -486,7 +592,7 @@
 			lda yvectors,x
 			sta ball_dy,y
 			iny
-			inx
+			inx	
 			clc
 			cpy #$05
 			bcc loop
@@ -494,8 +600,153 @@
 			rts		
 			.bend
 	
+	configure
+	
+			.block
+			lda #$fb		; sprite shapes
+			sta $07fb
+
+			lda #$fc
+			sta $07fc
+
+			lda #$fd		
+			sta $07f8
+			lda #$fe
+			sta $07f9
+			lda #$ff
+			sta $07fa
+			
+			lda #%00011111	; 5 sprites on
+			sta $d015
+			
+			lda #%00011011	; players and digits double height
+			sta $d017
+	
+			lda #%00011000	; digits double width
+			sta $d01d	
+			
+			lda #$00		; monochrome sprites
+			sta $d01c
+			
+			lda #$0a		; colors
+			sta $d027
+			lda #$0e
+			sta $d028
+			lda #07
+			sta $d029
+			lda #12
+			sta $d02a
+			sta $d02b
+			
+			lda #SCORE_POS1	; score table position
+			sta $d006
+			lda #SCORE_POS2
+			sta $d008
+			lda #60
+			sta $d007
+			sta $d009
+
+			lda #120		; initial player positions
+			sta player_pos1
+			sta player_pos2
+			
+	;		ldx #$05
+	;	l1	lda ball_init_x-1,x			
+	;		sta ball_posx-1,x
+	;		lda ball_init_y-1,x
+	;		sta ball_posy-1,x
+	;		dex
+	;		bne l1
+						
+			lda #$00
+			sta $d01b
+			
+			lda #$05
+			sta ball_angle
+
+			; update ball direction
+    		jsr update_ball_dir
+			jsr sprpos
+			
+			rts			
+			.bend
+
+	; refresh score table
+
+	update_score
+			ldx #$00
+			lda score1
+			jsr draw_digit
+			ldx #$01
+			lda score2
+			jsr draw_digit
+			rts
+
+	; draw a digit on screen
+	; X which player
+	; A digit
+
+	draw_digit
+			.block
+
+			sta var1
+
+			lda #$c0
+			sta $fb
+
+			lda #$3e
+			sta $fc
+
+			cpx #$00
+			beq skip			
+			
+			lda #$00
+			sta $fb
+
+			lda #$3f
+			sta $fc
 
 
+	skip	
+			lda #10
+			sta var2
+			#mult8 var1,var2
+			tax
+	
+			ldy #$00
+	loop	lda digits,x
+			sta ($fb),y
+			iny
+			lda #$00
+			sta ($fb),y
+			iny
+			sta ($fb),y
+			iny
+			inx
+			cpy #28
+			bcc loop
+
+			rts
+			.bend
+
+	score_flash
+			.block
+			inc var1
+			lda var1
+			cmp #25
+			bcc skip
+			
+			lda $d015
+			eor #%00011000
+			sta $d015
+
+			lda #$00
+			sta var1			
+
+	skip	asl $d019
+			jmp $ea81
+			.bend
+	
 
     ; Sprites
     ; ------------------
@@ -509,12 +760,114 @@
     ball			.repeat 8,  $ff,$00,$00
 					.repeat 13, $00,$00,$00
 					.byte $00
+
+	digits		
+					.byte %11111111
+					.byte %11111111
+					.byte %11000011
+					.byte %11000011
+					.byte %11000011
+					.byte %11000011
+					.byte %11000011
+					.byte %11000011
+					.byte %11111111
+					.byte %11111111
+
+					.repeat 10, %00000011
+
+					.byte %11111111
+					.byte %11111111
+					.byte %00000011
+					.byte %00000011
+					.byte %11111111
+					.byte %11111111
+					.byte %11000000
+					.byte %11000000
+					.byte %11111111
+					.byte %11111111
+
+					.byte %11111111
+					.byte %11111111
+					.byte %00000011
+					.byte %00000011
+					.byte %11111111
+					.byte %11111111
+					.byte %00000011
+					.byte %00000011
+					.byte %11111111
+					.byte %11111111
+
+					.byte %11000011
+					.byte %11000011
+					.byte %11000011
+					.byte %11000011
+					.byte %11111111
+					.byte %11111111
+					.byte %00000011
+					.byte %00000011
+					.byte %00000011
+					.byte %00000011
+
+					.byte %11111111
+					.byte %11111111
+					.byte %11000000
+					.byte %11000000
+					.byte %11111111
+					.byte %11111111
+					.byte %00000011
+					.byte %00000011
+					.byte %11111111
+					.byte %11111111
+
+					.byte %11111111
+					.byte %11111111
+					.byte %11000000
+					.byte %11000000
+					.byte %11111111
+					.byte %11111111
+					.byte %11000011
+					.byte %11000011
+					.byte %11111111
+					.byte %11111111
+
+					.byte %11111111
+					.byte %11111111
+					.byte %00000011
+					.byte %00000011
+					.byte %00000011
+					.byte %00000011
+					.byte %00000011
+					.byte %00000011
+					.byte %00000011
+					.byte %00000011
+
+					.byte %11111111
+					.byte %11111111
+					.byte %11000011
+					.byte %11000011
+					.byte %11111111
+					.byte %11111111
+					.byte %11000011
+					.byte %11000011
+					.byte %11111111
+					.byte %11111111
+
+					.byte %11111111
+					.byte %11111111
+					.byte %11000011
+					.byte %11000011
+					.byte %11111111
+					.byte %11111111
+					.byte %00000011
+					.byte %00000011
+					.byte %11111111
+					.byte %11111111
 					
 	; Constants
 	; ------------------
 
-	ball_init_x		.byte $87,$32,$00,$00,$00	
-	ball_init_y		.byte $87,$70,$00,$00,$00
+	ball_init_x1	.byte $20,$00,$00,$00,$00	
+	ball_init_x2	.byte $89,$00,$00,$00,$00
 	
 	vbounce			.byte 12,23,22,21,20,19,18,17,16,15,14,13,0,1,2,3,4,5,6,7,8,9,10,11
 	
@@ -551,7 +904,5 @@
 					.byte $81,$7f,$ff,$ff,$ff
 					.byte $82,$35,$04,$f3,$34
 					.byte $82,$5d,$b3,$d7,$42
-					.byte $82,$77,$46,$ea,$39					
+					.byte $82,$77,$46,$ea,$39		
 
-
-					
