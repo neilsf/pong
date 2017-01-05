@@ -213,6 +213,10 @@
 	
 			#copy player_left, player_left+191, $3fff
 
+			lda #121		; initial player positions
+			sta player_pos1
+			sta player_pos2
+
 			jsr configure
 
 			; configure interrupt
@@ -234,6 +238,8 @@
 			sta score1
 			sta score2
 			jsr update_score
+
+	set_new_status
 
 			lda #01
 			sta game_status
@@ -263,7 +269,7 @@
 	ogloop  lda #%00010000
 	        bit $dc00
      		bne j2
-			jmp start_round
+			jmp start_new_game
 
 		j2	bit $dc01
 			bne ogloop
@@ -271,6 +277,16 @@
 
     ; game loop
 	;
+
+	start_new_game
+
+			lda #%00011111
+			sta $d015
+			
+			lda #$00
+			sta score1
+			sta score2
+			jsr update_score
 
     start_round
 
@@ -293,7 +309,13 @@
 
 			; reset players
 
-			jsr configure
+			lda #120
+			sta player_pos1
+			sta player_pos2
+
+			sta $d001
+			sta $d003
+
 			jsr update_score
 
 			; start interrupt
@@ -306,6 +328,9 @@
 	
 	srv_loop
 			.block
+
+			jsr wait1sec
+
 			lda game_status
 			bmi serving1
 						
@@ -313,8 +338,9 @@
 			lda #%00010000
 			bit $dc00
 			bne serving2
-			lda #13
+			lda #17
 			sta ball_angle
+			jsr update_ball_dir
 			jmp exit_serving
 
 	serving1
@@ -352,8 +378,21 @@
 			lda #01
 			sta game_status
 		ex	jsr update_score
+
+			; anyone has 9 points?
+			
+			lda #09
+			cmp score1
+			beq game_over
+			cmp score2
+			beq game_over
+
 			jmp start_round
 		no	jmp eloop
+
+
+	game_over
+			jmp set_new_status
 			.bend
 	
 	; play loop
@@ -383,8 +422,9 @@
 			bit joy1
 			bne p1down
 			lda player_pos1
-			cmp #$37
+			cmp #$38
 			beq p1down
+			dec player_pos1
 			dec player_pos1
 			jmp p2up
 	p1down
@@ -392,16 +432,18 @@
 			bit joy1
 			bne p2up
 			lda player_pos1
-			cmp #$cb
+			cmp #$ca
 			beq p2up
+			inc player_pos1
 			inc player_pos1
 	p2up
 			lda #%00000001
 			bit joy2
 			bne p2down
 			lda player_pos2
-			cmp #$37
+			cmp #$38
 			beq p2down
+			dec player_pos2
 			dec player_pos2
 			jmp plend
 	
@@ -410,8 +452,9 @@
 			bit joy2
 			bne plend
 			lda player_pos2
-			cmp #$cb
+			cmp #$ca
 			beq plend
+			inc player_pos2
 			inc player_pos2
 
 	plend
@@ -493,6 +536,9 @@
 
 	skip	stx $d010
 	
+			lda game_status
+			bne end_sprpos
+
 			; check for border collision
 			lda ball_posry		
 			clc	
@@ -500,7 +546,7 @@
 			bcc border_collision
 			cmp #$ec
 			bcs border_collision
-			
+
 			; check for goal
 
 			lda ball_posrx+1
@@ -534,8 +580,6 @@
 			lda player_pos1
 			bcc player_collision_check
 			
-			
-			
 			;lda ball_posx
 			
 	
@@ -554,20 +598,40 @@
 			jmp end_sprpos
 	
 	player_collision_check
+	;		sec
+	;		sbc ball_posry
+	;		bcc ball_is_lower
+	;		clc
+	;		cmp #$08
+	;		bcc player_bounce
+	;		jmp end_sprpos			; above
+	;	ball_is_lower
+	;		cmp #$cf
+	;		bcs player_bounce
+	
+			adc #21					; middle line of player
 			sec
 			sbc ball_posry
-			bcc ball_is_lower
-			clc
-			cmp #$08
+			bmi negative
+	positive
+			cmp #28
 			bcc player_bounce
-			jmp end_sprpos			; above
-		ball_is_lower
-			cmp #$cf
+			
+	negative
+			cmp #235
 			bcs player_bounce
 			jmp end_sprpos			; bellow
 			
 		player_bounce
-			ldx ball_angle
+			adc #21					; now it's 0-49
+			lsr
+			lsr
+			lsr
+			ldy ball_posrx+1
+			beq skip2
+			adc #$06
+		skip2
+			tax
 			lda vbounce,x
 			sta ball_angle
 			jsr update_ball_dir
@@ -645,10 +709,6 @@
 			lda #60
 			sta $d007
 			sta $d009
-
-			lda #120		; initial player positions
-			sta player_pos1
-			sta player_pos2
 			
 	;		ldx #$05
 	;	l1	lda ball_init_x-1,x			
@@ -745,6 +805,17 @@
 
 	skip	asl $d019
 			jmp $ea81
+			.bend
+
+	wait1sec
+			.block
+			ldx #50
+	loop
+			lda $d012
+			bne loop	
+			dex
+			bne loop
+			rts
 			.bend
 	
 
@@ -866,10 +937,11 @@
 	; Constants
 	; ------------------
 
-	ball_init_x1	.byte $20,$00,$00,$00,$00	
-	ball_init_x2	.byte $89,$00,$00,$00,$00
+	ball_init_x1	.byte $86,$20,$00,$00,$00	
+	ball_init_x2	.byte $89,$20,$00,$00,$00
 	
-	vbounce			.byte 12,23,22,21,20,19,18,17,16,15,14,13,0,1,2,3,4,5,6,7,8,9,10,11
+	vbounce			;.byte 10,9,7,5,3,2,14,15,17,19,21,22
+					.byte 3,4,5,5,7,8,9, 22,21,20,16,16,15,14
 	
 	hbounce			.byte 12,11,10,9,8,7,6,5,4,3,2,1,0,23,22,21,20,19,18,17,16,15,14,13
 	
