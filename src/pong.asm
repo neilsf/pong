@@ -1,5 +1,7 @@
 
     ; The PONG GAME
+	; https://github.com/neilsf/pong
+	; feketecsaba@gmail.com
 
     *=$0801
     
@@ -597,18 +599,7 @@
 			jsr update_ball_dir
 			jmp end_sprpos
 	
-	player_collision_check
-	;		sec
-	;		sbc ball_posry
-	;		bcc ball_is_lower
-	;		clc
-	;		cmp #$08
-	;		bcc player_bounce
-	;		jmp end_sprpos			; above
-	;	ball_is_lower
-	;		cmp #$cf
-	;		bcs player_bounce
-	
+	player_collision_check	
 			adc #21					; middle line of player
 			sec
 			sbc ball_posry
@@ -709,14 +700,6 @@
 			lda #60
 			sta $d007
 			sta $d009
-			
-	;		ldx #$05
-	;	l1	lda ball_init_x-1,x			
-	;		sta ball_posx-1,x
-	;		lda ball_init_y-1,x
-	;		sta ball_posy-1,x
-	;		dex
-	;		bne l1
 						
 			lda #$00
 			sta $d01b
