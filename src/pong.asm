@@ -1,58 +1,58 @@
 
-    ; The PONG GAME
+	; The PONG GAME
 	; https://github.com/neilsf/pong
 	; feketecsaba@gmail.com
 
-    *=$0801
-    
-    player_pos1	= $0334		; var char		Player 1 horizontal position
-    player_pos2 = $0335		; var char		Player 2 horizontal position
-    
-    ball_posx	= $0336		; var float 	Exact X position of the ball
-    ball_posy	= $033b		; var float 	Exact Y position of the ball
-    
-    ball_dx		= $0340		; var float 	Ball speed vector X
-    ball_dy		= $0345		; var float 	Ball speed vector Y
-    
-    ball_posrx  = $034a		; var int 		X position of the ball rounded to 1 pixel
-    ball_posry  = $034c		; var int 		Y position of the ball rounded to 1 pixel
-    
-    ball_angle	= $034e		; var char		Ball movement angle (times 15 degrees)
-    
-    flag_goal	= $034f		; var char 		Set when player scores goal 1=PLAYER1, 2=PLAYER2
-    
-    score1		= $0350		; var char		Player 1 score
-    score2		= $0351		; var char		Player 2 score
+	*=$0801
+	
+	player_pos1	= $0334		; var char		Player 1 horizontal position
+	player_pos2 = $0335		; var char		Player 2 horizontal position
+	
+	ball_posx	= $0336		; var float 	Exact X position of the ball
+	ball_posy	= $033b		; var float 	Exact Y position of the ball
+	
+	ball_dx		= $0340		; var float 	Ball speed vector X
+	ball_dy		= $0345		; var float 	Ball speed vector Y
+	
+	ball_posrx  = $034a		; var int 		X position of the ball rounded to 1 pixel
+	ball_posry  = $034c		; var int 		Y position of the ball rounded to 1 pixel
+	
+	ball_angle	= $034e		; var char		Ball movement angle (times 15 degrees)
+	
+	flag_goal	= $034f		; var char 		Set when player scores goal 1=PLAYER1, 2=PLAYER2
+	
+	score1		= $0350		; var char		Player 1 score
+	score2		= $0351		; var char		Player 2 score
 
 	SCORE_POS1  = 160		; const char	score 1 horizontal location on screen
 	SCORE_POS2  = 192		; const char	score 2 location on screen
-    
-    joy1		= $dc01		
-    joy2		= $dc00
-    
-    FACINX		= $b1aa		; BASIC float routines
-    MOVFM		= $bba2
-    MOVMF		= $bbd4
-    FADD		= $b867
+	
+	joy1		= $dc01		
+	joy2		= $dc00
+	
+	FACINX		= $b1aa		; BASIC float routines
+	MOVFM		= $bba2
+	MOVMF		= $bbd4
+	FADD		= $b867
 	INT			= $bccc
 	GIVAYF		= $b391
-    
-    var1		= $0352		; var char		Cheap variable 1
-    var2		= $0353		; var char		Cheap variable 2
+	
+	var1		= $0352		; var char		Cheap variable 1
+	var2		= $0353		; var char		Cheap variable 2
 	var3		= $0354		; var char		Cheap variable 3
-    
+	
 	game_status	= $0355		; var char		=0 Ball is bouncing, =128 p1 is serving, =1 p2 is serving
 	
-    ; basic loader "10 sys 2062"
-    
-    .byte $0c,$08,$0a,$00,$9e,$20,$32,$30,$36,$32,$00,$00,$00
-    
-    ; byte copy routine
-    ; arg1 short	base start address
-    ; arg2 short	base end address
-    ; arg3 short	destination end address
-    
-    copy	.macro
+	; basic loader "10 sys 2062"
+	
+	.byte $0c,$08,$0a,$00,$9e,$20,$32,$30,$36,$32,$00,$00,$00
+	
+	; byte copy routine
+	; arg1 short	base start address
+	; arg2 short	base end address
+	; arg3 short	destination end address
+	
+	copy	.macro
 			lda #<\1
 			sta $5f
 			lda #>\1
@@ -139,13 +139,13 @@
 			bne loop
 			.endm
 
-    ; setup screen
+	; setup screen
 
 			lda #$00
 			sta $d020
 			sta $d021
 
-    		ldx #$00
+			ldx #$00
 
 	clear	lda #$20
 			sta $0400,x
@@ -154,11 +154,11 @@
 			sta $06e8,x 
 			lda #$0f
 			sta $d800,x  
-        	sta $d900,x
-        	sta $da00,x
-        	sta $dae8,x
-        	inx
-        	bne clear
+			sta $d900,x
+			sta $da00,x
+			sta $dae8,x
+			inx
+			bne clear
 
 			.block
 			ldx #39
@@ -203,7 +203,7 @@
 
 			.block
 			 lda #$00
-			 ldy #128     ; fill 128 bytes
+			 ldy #128	 ; fill 128 bytes
 		loop
 			 sta $3ec0,x
 			 dex
@@ -269,15 +269,15 @@
 			; wait for game start
 
 	ogloop  lda #%00010000
-	        bit $dc00
-     		bne j2
+			bit $dc00
+	 		bne j2
 			jmp start_new_game
 
 		j2	bit $dc01
 			bne ogloop
 	
 
-    ; game loop
+	; game loop
 	;
 
 	start_new_game
@@ -290,13 +290,13 @@
 			sta score2
 			jsr update_score
 
-    start_round
+	start_round
 
-    		
+			
 			; clear goal flag
-    		
-    		lda #$00    		
-    		sta flag_goal;
+			
+			lda #$00			
+			sta flag_goal;
 
 			; disable interrupt and 
 			; reconfigure for gameplay
@@ -708,7 +708,7 @@
 			sta ball_angle
 
 			; update ball direction
-    		jsr update_ball_dir
+			jsr update_ball_dir
 			jsr sprpos
 			
 			rts			
@@ -802,16 +802,16 @@
 			.bend
 	
 
-    ; Sprites
-    ; ------------------
+	; Sprites
+	; ------------------
 
-    player_left		.repeat 21, $ff,$00,$00
-    				.byte $00
+	player_left		.repeat 21, $ff,$00,$00
+					.byte $00
 
-    player_right	.repeat 21, $00,$00,$ff
-    				.byte $00
-    				
-    ball			.repeat 8,  $ff,$00,$00
+	player_right	.repeat 21, $00,$00,$ff
+					.byte $00
+					
+	ball			.repeat 8,  $ff,$00,$00
 					.repeat 13, $00,$00,$00
 					.byte $00
 
