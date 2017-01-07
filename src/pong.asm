@@ -24,8 +24,8 @@
 	score1		= $0350		; var char		Player 1 score
 	score2		= $0351		; var char		Player 2 score
 
-	SCORE_POS1  = 160		; const char	score 1 horizontal location on screen
-	SCORE_POS2  = 192		; const char	score 2 location on screen
+	SCORE_POS1 	= 160		; const char	score 1 horizontal location on screen
+	SCORE_POS2	= 192		; const char	score 2 location on screen
 	
 	joy1		= $dc01		
 	joy2		= $dc00
@@ -47,27 +47,6 @@
 	
 	.byte $0c,$08,$0a,$00,$9e,$20,$32,$30,$36,$32,$00,$00,$00
 	
-	; byte copy routine
-	; arg1 short	base start address
-	; arg2 short	base end address
-	; arg3 short	destination end address
-	
-	copy	.macro
-			lda #<\1
-			sta $5f
-			lda #>\1
-			sta $60
-			lda #<\2
-			sta $5a
-			lda #>\2
-			sta $5b
-			lda #<\3
-			sta $58
-			lda #>\3
-			sta $59
-			jsr $a3bf
-			.endm
-			
 	; add floats
 	; arg1 float
 	; arg2 float
@@ -160,6 +139,7 @@
 			inx
 			bne clear
 
+
 			.block
 			ldx #39
 			lda #$f9
@@ -199,22 +179,43 @@
 			bne l3
 			.bend
 
-			; clear digits sprite area
+			; clear sprite area
 
 			.block
 			 lda #$00
-			 ldy #128	 ; fill 128 bytes
+			 ldx #$ff	 ; fill 256 bytes
 		loop
 			 sta $3ec0,x
 			 dex
 			 bne loop		
-
 			.bend
 	
-			; copy sprites
-	
-			#copy player_left, player_left+191, $3fff
+			; players shape
 
+			.block
+			ldx #00
+			lda #$ff
+	loop	sta $3f40,x
+			inx
+			inx
+			inx
+			cpx #63
+			bne loop
+			.bend
+
+			; ball shape
+
+			.block
+			ldx #00
+			lda #$ff
+	loop	sta $3f80,x
+			inx
+			inx
+			inx
+			cpx #24
+			bne loop
+			.bend
+			
 			lda #121		; initial player positions
 			sta player_pos1
 			sta player_pos2
@@ -517,7 +518,7 @@
 			lda player_pos1
 			sta $d001
 			
-			lda #64
+			lda #80
 			sta $d002
 			lda player_pos2
 			sta $d003
@@ -666,9 +667,8 @@
 
 			lda #$fd		
 			sta $07f8
-			lda #$fe
 			sta $07f9
-			lda #$ff
+			lda #$fe
 			sta $07fa
 			
 			lda #%00011111	; 5 sprites on
@@ -804,16 +804,6 @@
 
 	; Sprites
 	; ------------------
-
-	player_left		.repeat 21, $ff,$00,$00
-					.byte $00
-
-	player_right	.repeat 21, $00,$00,$ff
-					.byte $00
-					
-	ball			.repeat 8,  $ff,$00,$00
-					.repeat 13, $00,$00,$00
-					.byte $00
 
 	digits		
 					.byte %11111111
