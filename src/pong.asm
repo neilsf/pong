@@ -8,11 +8,11 @@
 	player_pos1	= $0334		; var char		Player 1 horizontal position
 	player_pos2 = $0335		; var char		Player 2 horizontal position
 	
-	ball_posx	= $0336		; var float 	Exact X position of the ball
-	ball_posy	= $033b		; var float 	Exact Y position of the ball
+	ball_posx	= $0336		; var fixed 	Exact X position of the ball
+	ball_posy	= $033b		; var fixed 	Exact Y position of the ball
 	
-	ball_dx		= $0340		; var float 	Ball speed vector X
-	ball_dy		= $0345		; var float 	Ball speed vector Y
+	ball_dx		= $0340		; var fixed 	Ball speed vector X
+	ball_dy		= $0345		; var fixed 	Ball speed vector Y
 	
 	ball_posrx  = $034a		; var int 		X position of the ball rounded to 1 pixel
 	ball_posry  = $034c		; var int 		Y position of the ball rounded to 1 pixel
@@ -29,14 +29,7 @@
 	
 	joy1		= $dc01		
 	joy2		= $dc00
-	
-	FACINX		= $b1aa		; BASIC float routines
-	MOVFM		= $bba2
-	MOVMF		= $bbd4
-	FADD		= $b867
-	INT			= $bccc
-	GIVAYF		= $b391
-	
+		
 	var1		= $0352		; var char		Cheap variable 1
 	var2		= $0353		; var char		Cheap variable 2
 	var3		= $0354		; var char		Cheap variable 3
@@ -65,11 +58,13 @@
 			.endm
 			
 	; convert fixed to integer (/128)
-	; arg1 fixed
+	; arg1 unsigned fixed
 	; arg2 int
 	; result to second argument
 	
 	toint	.macro
+			pha
+			txa
 			pha
 			lda >1
 			sta >2
@@ -81,6 +76,32 @@
 			ror <2
 			dex
 			bne do
+			pla
+			tax
+			pla
+			.endm
+
+	; convert integer to fixed (x128)
+	; arg1 unsigned integer
+	; arg2 fixed
+	; result to second argument
+	
+	tofixed	.macro
+			pha
+			txa
+			pha
+			lda >1
+			sta >2
+			lda <1
+			sta <2
+			ldx #07
+		do	clc
+			rol <2
+			rol >2
+			dex
+			bne do
+			pla
+			tax
 			pla
 			.endm
 			
@@ -458,35 +479,29 @@
 
 	p2serve
 			lda player_pos2
-			ldx #$0a
+			ldx #$02
 			jsr pos_ball
 			rts
 	p1serve
 			lda player_pos1
-			ldx #$05
+			ldx #$00
 			jsr pos_ball
 			rts
 
 	pos_ball
-			clc
-			adc #16
-			tay
-			txa
-			pha
-			lda #$00
-			jsr GIVAYF
 
-			ldy #>ball_posy
-			ldx #<ball_posy
-			jsr MOVMF
- 			pla
-			tax
-			ldy #$05
-		l1	lda ball_init_x1-1,x			
-			sta ball_posx-1,y			
-			dex			
-			dey
-			bne l1	
+			adc #16
+			sta var1+1
+			lda #$00
+			jsr var1
+
+			#tofixed var1, ball_posy
+			
+			lda ball_init_x1,x			
+			sta ball_posx,x
+			lda ball_init_x1+1,x			
+			sta ball_posx+1,x
+				
 			rts
 	
 		go	
@@ -621,23 +636,22 @@
 			
 	update_ball_dir
 			.block
-			ldx #$05
+			ldx #$02
 			stx var1
 			ldy ball_angle
 			sty var2
 			#mult8 var1, var2
 			tax
 
-			ldy #$00
-	loop	lda xvectors,x
-			sta ball_dx,y
+			lda xvectors,x
+			sta ball_dx,x
+			lda xvectors+1,x
+			sta ball_dx+1,x
+
 			lda yvectors,x
-			sta ball_dy,y
-			iny
-			inx	
-			clc
-			cpy #$05
-			bcc loop
+			sta ball_dy,x
+			lda yvectors+1,x
+			sta ball_dy+1,x
 
 			rts		
 			.bend
@@ -896,76 +910,43 @@
 	; Constants
 	; ------------------
 
-	ball_init_x1	.byte $86,$20,$00,$00,$00	
-	ball_init_x2	.byte $89,$20,$00,$00,$00
+	ball_init_x1	.byte $00,$14
+	ball_init_x2	.byte 00,$a0
 	
 	vbounce			;.byte 10,9,7,5,3,2,14,15,17,19,21,22
 					.byte 3,4,5,5,7,8,9, 22,21,20,16,16,15,14
 	
 	hbounce			.byte 12,11,10,9,8,7,6,5,4,3,2,1,0,23,22,21,20,19,18,17,16,15,14,13
 	
-		xvectors	.byte $00,$49,$0f,$da,$a2
-					.byte $81,$04,$83,$ee,$0c
-					.byte $81,$7f,$ff,$ff,$ff
-					.byte $82,$35,$04,$f3,$34
-					.byte $82,$5d,$b3,$d7,$42
-					.byte $82,$77,$46,$ea,$39
-		
-		yvectors	.byte $82,$7f,$ff,$ff,$ff
-					.byte $82,$77,$46,$ea,$3a
-					.byte $82,$5d,$b3,$d7,$44
-					.byte $82,$35,$04,$f3,$36
-					.byte $82,$00,$00,$00,$02
-					.byte $81,$04,$83,$ee,$11
-					.byte $00,$49,$0f,$da,$a2 
-					.byte $81,$84,$83,$ee,$11
-					.byte $81,$ff,$ff,$ff,$fc
-					.byte $82,$b5,$04,$f3,$34
-					.byte $82,$dd,$b3,$d7,$41
-					.byte $82,$f7,$46,$ea,$39
-					.byte $82,$ff,$ff,$ff,$fe 
-					.byte $82,$f7,$46,$ea,$3b
-					.byte $82,$dd,$b3,$d7,$47
-					.byte $82,$b5,$04,$f3,$39
-					.byte $82,$80,$00,$00,$02
-					.byte $81,$84,$83,$ee,$1d
-		
-		rvectors	.byte $00,$49,$0f,$da,$a2
-					.byte $81,$04,$83,$ee,$0c
-					.byte $81,$7f,$ff,$ff,$ff
-					.byte $82,$35,$04,$f3,$34
-					.byte $82,$5d,$b3,$d7,$42
-					.byte $82,$77,$46,$ea,$39		
+		xvectors  	.word $0000
+					.word $0084
+					.word $00ff
+					.word $016a
+					.word $01bb
+					.word $01ee
 
-		fpxvectors  .byte $00,$00
-					.byte $00,$84
-					.byte $00,$ff
-					.byte $01,$6a
-					.byte $01,$bb
-					.byte $01,$ee
+		yvectors  	.word $01ff
+					.word $01ee
+					.word $01bb
+					.word $016a
+					.word $0100
+					.word $0084
+					.word $0000
+					.word $ff7b
+					.word $ff00
+					.word $fe95
+					.word $fe44
+					.word $fe11
+					.word $fe00
+					.word $fe11
+					.word $fe44
+					.word $fe95
+					.word $feff
+					.word $ff7b
 
-		fpyvectors  .byte $01,$ff
-					.byte $01,$ee
-					.byte $01,$bb
-					.byte $01,$6a
-					.byte $01,$00
-					.byte $00,$84
-					.byte $00,$00
-					.byte $ff,$7b
-					.byte $ff,$00
-					.byte $fe,$95
-					.byte $fe,$44
-					.byte $fe,$11
-					.byte $fe,$00
-					.byte $fe,$11
-					.byte $fe,$44
-					.byte $fe,$95
-					.byte $fe,$ff
-					.byte $ff,$7b
-
-		fprvectors  .byte $00,$00
-					.byte $00,$84
-					.byte $00,$ff
-					.byte $01,$6a
-					.byte $01,$bb
-					.byte $01,$ee
+		rvectors  	.word $0000
+					.word $0084
+					.word $00ff
+					.word $016a
+					.word $01bb
+					.word $01ee
