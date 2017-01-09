@@ -47,54 +47,40 @@
 	
 	.byte $0c,$08,$0a,$00,$9e,$20,$32,$30,$36,$32,$00,$00,$00
 	
-	; add floats
-	; arg1 float
-	; arg2 float
+	; add 16-bit integers
+	; arg1 int
+	; arg2 int
 	; result to first argument
 	
-	fladd	.macro
+	add		.macro
 			pha
-			tya
-			pha
-			txa
-			pha
-			lda #<\1
-			ldy #>\1
-			jsr MOVFM
-			lda #<\2
-			ldy #>\2
-			jsr FADD
-			ldx #<\1
-			ldy #>\2
-			jsr MOVMF
-			pla
-			tax
-			pla
-			tay
+			clc
+			lda #<1
+			adc #<2
+			sta #<1
+			lda #>1
+			adc #>2
+			sta #>1
 			pla
 			.endm
 			
-	; convert float to integer
-	; arg1 float
+	; convert fixed to integer (/128)
+	; arg1 fixed
 	; arg2 int
 	; result to second argument
 	
 	toint	.macro
 			pha
-			tya
-			pha
-			txa
-			pha
-			lda #<\1
-			ldy #>\1
-			jsr MOVFM
-			jsr FACINX
-			sta \2+1
-			sty \2
-			pla
-			tax
-			pla
-			tay
+			lda >1
+			sta >2
+			lda <1
+			sta <2
+			ldx #07
+		do	clc
+			ror >2
+			ror <2
+			dex
+			bne do
 			pla
 			.endm
 			
@@ -504,8 +490,8 @@
 			rts
 	
 		go	
-			#fladd ball_posx, ball_dx
-			#fladd ball_posy, ball_dy
+			#add ball_posx, ball_dx
+			#add ball_posy, ball_dy
 			rts
 			.bend
 
@@ -951,3 +937,35 @@
 					.byte $82,$5d,$b3,$d7,$42
 					.byte $82,$77,$46,$ea,$39		
 
+		fpxvectors  .byte $00,$00
+					.byte $00,$84
+					.byte $00,$ff
+					.byte $01,$6a
+					.byte $01,$bb
+					.byte $01,$ee
+
+		fpyvectors  .byte $01,$ff
+					.byte $01,$ee
+					.byte $01,$bb
+					.byte $01,$6a
+					.byte $01,$00
+					.byte $00,$84
+					.byte $00,$00
+					.byte $ff,$7b
+					.byte $ff,$00
+					.byte $fe,$95
+					.byte $fe,$44
+					.byte $fe,$11
+					.byte $fe,$00
+					.byte $fe,$11
+					.byte $fe,$44
+					.byte $fe,$95
+					.byte $fe,$ff
+					.byte $ff,$7b
+
+		fprvectors  .byte $00,$00
+					.byte $00,$84
+					.byte $00,$ff
+					.byte $01,$6a
+					.byte $01,$bb
+					.byte $01,$ee
