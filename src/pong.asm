@@ -48,12 +48,12 @@
 	add		.macro
 			pha
 			clc
-			lda #<1
-			adc #<2
-			sta #<1
-			lda #>1
-			adc #>2
-			sta #>1
+			lda \1
+			adc \2
+			sta \1
+			lda \1+1
+			adc \2+1
+			sta \1+1
 			pla
 			.endm
 			
@@ -66,14 +66,14 @@
 			pha
 			txa
 			pha
-			lda >1
-			sta >2
-			lda <1
-			sta <2
+			lda \1
+			sta \2
+			lda \1+1
+			sta \2+1
 			ldx #07
 		do	clc
-			ror >2
-			ror <2
+			ror \2+1
+			ror \2
 			dex
 			bne do
 			pla
@@ -90,14 +90,14 @@
 			pha
 			txa
 			pha
-			lda >1
-			sta >2
-			lda <1
-			sta <2
+			lda \1
+			sta \2
+			lda \1+1
+			sta \2+1
 			ldx #07
 		do	clc
-			rol <2
-			rol >2
+			rol \2
+			rol \2+1
 			dex
 			bne do
 			pla
@@ -491,16 +491,16 @@
 	pos_ball
 
 			adc #16
-			sta var1+1
+			sta var1
 			lda #$00
-			jsr var1
+			sta var1+1
 
 			#tofixed var1, ball_posy
-			
+		
 			lda ball_init_x1,x			
-			sta ball_posx,x
+			sta ball_posx
 			lda ball_init_x1+1,x			
-			sta ball_posx+1,x
+			sta ball_posx+1
 				
 			rts
 	
@@ -644,14 +644,14 @@
 			tax
 
 			lda xvectors,x
-			sta ball_dx,x
+			sta ball_dx
 			lda xvectors+1,x
-			sta ball_dx+1,x
+			sta ball_dx+1
 
 			lda yvectors,x
-			sta ball_dy,x
+			sta ball_dy
 			lda yvectors+1,x
-			sta ball_dy+1,x
+			sta ball_dy+1
 
 			rts		
 			.bend
@@ -911,7 +911,7 @@
 	; ------------------
 
 	ball_init_x1	.byte $00,$14
-	ball_init_x2	.byte 00,$a0
+	ball_init_x2	.byte $00,$a0
 	
 	vbounce			;.byte 10,9,7,5,3,2,14,15,17,19,21,22
 					.byte 3,4,5,5,7,8,9, 22,21,20,16,16,15,14
