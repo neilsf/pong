@@ -37,6 +37,9 @@
 	game_status	= $0355		; var char		=0 Ball is bouncing, =128 p1 is serving, =1 p2 is serving
 
 	counter		= $0356
+
+	zp1			= $0fb
+	zp2			= $0fd
 	
 	; basic loader "10 sys 2062"
 	
@@ -424,7 +427,7 @@
 			dec counter
 			bne skip
 
-			lda #$00
+			lda #$16
 			sta $d404
 			
 	skip
@@ -702,13 +705,13 @@
 
 			lda #$00		; sound
 			sta $d400
-			lda #$a0
+			lda #180
 			sta $d401
 			lda #$00
 			sta $d404
-			lda #%00010110
+			lda #9
 			sta $d405
-			lda #%00110111
+			lda #0
 			sta $d406
 			lda #%00000111
 			sta $d418
@@ -825,7 +828,7 @@
 	klang
 			lda #%00010001
 			sta $d404
-			lda #20
+			lda #35
 			sta counter
 			rts
 	
