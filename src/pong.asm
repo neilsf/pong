@@ -35,6 +35,11 @@
 	var3		= $0354		; var char		Cheap variable 3
 	
 	game_status	= $0355		; var char		=0 Ball is bouncing, =128 p1 is serving, =1 p2 is serving
+
+	counter		= $0356
+
+	zp1			= $0fb
+	zp2			= $0fd
 	
 	; basic loader "10 sys 2062"
 	
@@ -419,9 +424,13 @@
 			jsr player_movement
 			jsr ball_movement				
 
-			;lda #$00		; debug
-			;sta $d020		; debug
+			dec counter
+			bne skip
+
+			lda #$16
+			sta $d404
 			
+	skip
 			asl $d019
 			jmp $ea81
 
@@ -597,6 +606,7 @@
 			ldx ball_angle
 			lda hbounce,x
 			sta ball_angle
+			jsr klang
 			jsr update_ball_dir
 			jmp end_sprpos
 	
@@ -626,6 +636,7 @@
 			tax
 			lda vbounce,x
 			sta ball_angle
+			jsr klang
 			jsr update_ball_dir
 			jmp end_sprpos
 			.bend
@@ -651,7 +662,6 @@
 			sta ball_dy
 			lda yvectors+1,x
 			sta ball_dy+1
-
 			rts		
 			.bend
 	
@@ -691,6 +701,20 @@
 			lda #12
 			sta $d02a
 			sta $d02b
+
+			lda #$00		; sound
+			sta $d400
+			lda #180
+			sta $d401
+			lda #$00
+			sta $d404
+			lda #9
+			sta $d405
+			lda #0
+			sta $d406
+			lda #%00000111
+			sta $d418
+			
 			
 			lda #SCORE_POS1	; score table position
 			sta $d006
@@ -799,6 +823,13 @@
 			bne loop
 			rts
 			.bend
+
+	klang
+			lda #%00010001
+			sta $d404
+			lda #35
+			sta counter
+			rts
 	
 
 	; Sprites
