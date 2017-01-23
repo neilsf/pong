@@ -7,7 +7,7 @@ Open your C64 emulator and run the .prg file or use Vice's c1541 program to writ
 
 How to compile from source
 --------------------------
-The source code is in Turbo Macro Pro format, you'll need Tmpx to compile the source code. There is a shell script in the root of this repo to compile in one line. More info about tmpx: http://turbo.style64.org
+The source code is in Turbo Macro Pro format, you'll need TMPx to compile the source code. There is a shell script in the root of this repo that you can use to quickly compile the program. More info about TMPx: http://turbo.style64.org
 
 Found a bug?
 ------------
