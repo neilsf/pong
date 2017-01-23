@@ -36,7 +36,8 @@
 	
 	game_status	= $0355		; var char		=0 Ball is bouncing, =128 p1 is serving, =1 p2 is serving
 
-	counter		= $0356
+	counter1	= $0356
+	counter2	= $0357
 
 	zp1			= $0fb
 	zp2			= $0fd
@@ -424,14 +425,17 @@
 			jsr player_movement
 			jsr ball_movement				
 
-			dec counter
-			bne skip
-
+			dec counter1
+			bne skip1
 			lda #$16
 			sta $d404
-			
-	skip
-			asl $d019
+	skip1
+			dec counter2
+			bne skip2
+			lda #$16
+			sta $d40b
+
+	skip2	asl $d019
 			jmp $ea81
 
 	player_movement
@@ -606,7 +610,7 @@
 			ldx ball_angle
 			lda hbounce,x
 			sta ball_angle
-			jsr klang
+			jsr klang1
 			jsr update_ball_dir
 			jmp end_sprpos
 	
@@ -636,7 +640,7 @@
 			tax
 			lda vbounce,x
 			sta ball_angle
-			jsr klang
+			jsr klang2
 			jsr update_ball_dir
 			jmp end_sprpos
 			.bend
@@ -704,14 +708,19 @@
 
 			lda #$00		; sound
 			sta $d400
+			sta $d407
 			lda #180
 			sta $d401
+			sta $d408
 			lda #$00
 			sta $d404
+			sta $d40b
 			lda #9
 			sta $d405
+			sta $d40c
 			lda #0
 			sta $d406
+			sta $d40d
 			lda #%00000111
 			sta $d418
 			
@@ -824,11 +833,18 @@
 			rts
 			.bend
 
-	klang
+	klang1
 			lda #%00010001
 			sta $d404
 			lda #35
-			sta counter
+			sta counter1
+			rts
+
+	klang2
+			lda #%00010001
+			sta $d40b
+			lda #35
+			sta counter2
 			rts
 	
 
