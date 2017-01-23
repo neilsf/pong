@@ -489,11 +489,10 @@
 			rts
 
 	pos_ball
-
 			adc #16
 			sta var1+1
 			lda #$00
-			jsr var1
+			sta var1
 
 			#tofixed var1, ball_posy
 			
@@ -501,7 +500,7 @@
 			sta ball_posx,x
 			lda ball_init_x1+1,x			
 			sta ball_posx+1,x
-				
+
 			rts
 	
 		go	
@@ -911,7 +910,7 @@
 	; ------------------
 
 	ball_init_x1	.byte $00,$14
-	ball_init_x2	.byte 00,$a0
+	ball_init_x2	.byte $00,$a0
 	
 	vbounce			;.byte 10,9,7,5,3,2,14,15,17,19,21,22
 					.byte 3,4,5,5,7,8,9, 22,21,20,16,16,15,14
